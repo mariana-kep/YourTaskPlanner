@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
-	_ "github.com/lib/pq"
-	"github.com/jmoiron/sqlx"
 	tgbot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/mariana-kep/yourtaskplanner/internal/cache"
@@ -36,7 +36,9 @@ func main() {
 		Password: cfg.RedisPassword,
 		DB:       cfg.RedisDB,
 	})
-	_ = rdb.Ping(context.Background()).Err()
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		log.Fatal("redis connect:", err)
+	}
 	prod := kafka.NewProducer(cfg.KafkaBroker)
 	taskRepo := postgres.NewTaskRepository(db)
 	cacheClient := cache.NewRedisCache(rdb)
@@ -46,7 +48,7 @@ func main() {
 		b, err := tgbot.NewBotAPI(cfg.TelegramToken)
 		if err == nil {
 			botAPI = b
-			_, _ = botAPI.Request(tgbot.NewRemoveWebhook())
+			_, _ = http.Post(fmt.Sprintf("https://api.telegram.org/bot%s/deleteWebhook", cfg.TelegramToken), "application/json", nil)
 		}
 	}
 	s := server.New(cfg, taskSvc, logg, botAPI)

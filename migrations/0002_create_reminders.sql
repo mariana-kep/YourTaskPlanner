@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS reminders (
+  id SERIAL PRIMARY KEY,
+  task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+  scheduled_at TIMESTAMP NOT NULL,
+  sent BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT now()
+);

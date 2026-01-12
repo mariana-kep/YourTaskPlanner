@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: YourTaskPlanner API
+  version: "0.1"
+paths:
+  /api/v1/tasks:
+    post:
+      summary: Create task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                owner_id: { type: integer }
+      responses:
+        "201":
+          description: Created
+    get:
+      summary: List tasks for user
+      parameters:
+        - in: query
+          name: user_id
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/v1/bot/webhook:
+    post:
+      summary: Telegram webhook endpoint
+      responses:
+        "200":
+          description: OK

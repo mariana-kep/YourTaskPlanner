@@ -9,6 +9,7 @@ import (
 
 	tgbot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 
@@ -23,14 +24,21 @@ import (
 )
 
 func main() {
+	_ = godotenv.Load()
+
 	cfg := config.LoadConfigFromEnv()
 	logg := logger.New(cfg)
+
+	logg.Infof("config: pg=%s:%s db=%s kafka=%s redis=%s",
+		cfg.PostgresHost, cfg.PostgresPort, cfg.PostgresDB, cfg.KafkaBroker, cfg.RedisAddr)
+
 	db, err := sqlx.Connect("postgres", cfg.PostgresDSN())
 	if err != nil {
 		log.Fatal("db connect:", err)
 	}
 	db.SetMaxOpenConns(25)
 	db.SetMaxIdleConns(5)
+
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     cfg.RedisAddr,
 		Password: cfg.RedisPassword,
@@ -39,6 +47,7 @@ func main() {
 	if err := rdb.Ping(context.Background()).Err(); err != nil {
 		log.Fatal("redis connect:", err)
 	}
+
 	prod := kafka.NewProducer(cfg.KafkaBroker)
 	taskRepo := postgres.NewTaskRepository(db)
 	cacheClient := cache.NewRedisCache(rdb)

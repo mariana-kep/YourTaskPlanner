@@ -18,6 +18,7 @@ type TaskRepository interface {
 	GetDueReminders(ctx context.Context, before time.Time) ([]models.Task, error)
 	MarkReminderScheduled(ctx context.Context, taskID int64) error
 	MarkReminderSent(ctx context.Context, taskID int64) error
+	GetByID(ctx context.Context, id int64) (*models.Task, error)
 }
 
 type taskRepository struct {
@@ -51,6 +52,15 @@ func (r *taskRepository) GetByUser(ctx context.Context, userID int64) ([]models.
 	var res []models.Task
 	err := r.db.SelectContext(ctx, &res, `SELECT * FROM tasks WHERE owner_id=$1 OR assigned_to=$1 ORDER BY due_at NULLS LAST`, userID)
 	return res, err
+}
+
+func (r *taskRepository) GetByID(ctx context.Context, id int64) (*models.Task, error) {
+	var t models.Task
+	err := r.db.GetContext(ctx, &t, `SELECT * FROM tasks WHERE id=$1`, id)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
 }
 
 func (r *taskRepository) Update(ctx context.Context, t *models.Task) error {

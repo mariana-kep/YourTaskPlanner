@@ -2,6 +2,8 @@ openapi: 3.0.3
 info:
   title: YourTaskPlanner API
   version: "0.1"
+servers:
+  - url: http://localhost:8080
 paths:
   /api/v1/tasks:
     post:
@@ -11,19 +13,20 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                title: { type: string }
-                description: { type: string }
-                owner_id: { type: integer }
+              $ref: '#/components/schemas/TaskCreate'
       responses:
         "201":
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
     get:
       summary: List tasks for user
       parameters:
         - in: query
           name: user_id
+          required: true
           schema: { type: integer }
       responses:
         "200":
@@ -33,10 +36,159 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
-  /api/v1/bot/webhook:
+                  $ref: '#/components/schemas/Task'
+  /api/v1/tasks/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    put:
+      summary: Update task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdate'
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+    delete:
+      summary: Delete task
+      responses:
+        "204":
+          description: Deleted (no content)
+  /api/v1/tasks/{id}/assign:
     post:
-      summary: Telegram webhook endpoint
+      summary: Assign task to a user
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRequest'
+      responses:
+        "200":
+          description: Assigned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+  /api/v1/tasks/shared:
+    get:
+      summary: List shared tasks
       responses:
         "200":
           description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+  /api/v1/bot/webhook:
+    post:
+      summary: Telegram webhook endpoint
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+
+components:
+  schemas:
+    Task:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        owner_id:
+          type: integer
+        assigned_to:
+          type: integer
+          nullable: true
+        shared:
+          type: boolean
+        due_at:
+          type: string
+          format: date-time
+          nullable: true
+        remind_at:
+          type: string
+          format: date-time
+          nullable: true
+        reminder_scheduled:
+          type: boolean
+        reminder_sent:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    TaskCreate:
+      type: object
+      required:
+        - title
+        - owner_id
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        owner_id:
+          type: integer
+        due_at:
+          type: string
+          format: date-time
+        remind_at:
+          type: string
+          format: date-time
+    TaskUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        assigned_to:
+          type: integer
+        shared:
+          type: boolean
+        due_at:
+          type: string
+          format: date-time
+        remind_at:
+          type: string
+          format: date-time
+    AssignRequest:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: integer

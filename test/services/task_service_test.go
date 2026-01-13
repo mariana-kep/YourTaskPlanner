@@ -82,6 +82,14 @@ func (m *MockCache) InvalidateTasks(ctx context.Context, userID int64) error {
 	return args.Error(0)
 }
 
+func (m *MockRepo) GetByID(ctx context.Context, id int64) (*models.Task, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Task), args.Error(1)
+}
+
 type MockKafka struct {
 	mock.Mock
 }

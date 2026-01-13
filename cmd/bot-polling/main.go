@@ -255,7 +255,6 @@ func main() {
 			}
 
 		case <-time.After(time.Second * 1):
-			// noop
 		}
 	}
 }

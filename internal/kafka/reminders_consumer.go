@@ -3,6 +3,7 @@ package kafka
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -39,7 +40,11 @@ func ConsumeRemindersAndPublishNotifications(broker string, producer Producer) {
 		if v, ok := payload["title"].(string); ok {
 			title = v
 		}
-		text := "Напоминание: " + title
+		desc := ""
+		if v, ok := payload["description"].(string); ok {
+			desc = v
+		}
+		text := fmt.Sprintf("⏰ Напоминание: %s\n\n%s", title, desc)
 		notification := map[string]interface{}{
 			"chat_id": chatID,
 			"text":    text,

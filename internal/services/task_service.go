@@ -4,11 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/mariana-kep/yourtaskplanner/internal/cache"
-	"github.com/mariana-kep/yourtaskplanner/internal/kafka"
 	"github.com/mariana-kep/yourtaskplanner/internal/logger"
 	"github.com/mariana-kep/yourtaskplanner/internal/models"
-	"github.com/mariana-kep/yourtaskplanner/internal/repo/postgres"
 )
 
 type TaskService interface {
@@ -21,13 +18,13 @@ type TaskService interface {
 }
 
 type taskService struct {
-	repo  postgres.TaskRepository
-	cache cache.Cache
-	kafka kafka.Producer
+	repo  TaskRepository
+	cache Cache
+	kafka Producer
 	log   *logger.Logger
 }
 
-func NewTaskService(repo postgres.TaskRepository, cache cache.Cache, kafka kafka.Producer, log *logger.Logger) TaskService {
+func NewTaskService(repo TaskRepository, cache Cache, kafka Producer, log *logger.Logger) TaskService {
 	return &taskService{repo: repo, cache: cache, kafka: kafka, log: log}
 }
 
@@ -35,27 +32,34 @@ func (s *taskService) CreateTask(ctx context.Context, t *models.Task) error {
 	if err := s.repo.Create(ctx, t); err != nil {
 		return err
 	}
-	_ = s.cache.InvalidateTasks(ctx, t.OwnerID)
-	msg := map[string]interface{}{
-		"task_id":     t.ID,
-		"owner_id":    t.OwnerID,
-		"title":       t.Title,
-		"description": t.Description,
+	if s.cache != nil {
+		_ = s.cache.InvalidateTasks(ctx, t.OwnerID)
 	}
-	_ = s.kafka.Publish(ctx, "tasks.created", msg)
+	if s.kafka != nil {
+		msg := map[string]interface{}{
+			"task_id":     t.ID,
+			"owner_id":    t.OwnerID,
+			"title":       t.Title,
+			"description": t.Description,
+		}
+		_ = s.kafka.Publish(ctx, "tasks.created", msg)
+	}
 	return nil
 }
 
 func (s *taskService) GetTasks(ctx context.Context, userID int64) ([]models.Task, error) {
-	tasks, err := s.cache.GetTasks(ctx, userID)
-	if err == nil && len(tasks) > 0 {
-		return tasks, nil
+	if s.cache != nil {
+		if tasks, err := s.cache.GetTasks(ctx, userID); err == nil && len(tasks) > 0 {
+			return tasks, nil
+		}
 	}
-	tasks, err = s.repo.GetByUser(ctx, userID)
+	tasks, err := s.repo.GetByUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	_ = s.cache.SetTasks(ctx, userID, tasks, time.Minute*5)
+	if s.cache != nil {
+		_ = s.cache.SetTasks(ctx, userID, tasks, time.Minute*5)
+	}
 	return tasks, nil
 }
 
@@ -67,10 +71,12 @@ func (s *taskService) UpdateTask(ctx context.Context, t *models.Task) error {
 	if err := s.repo.Update(ctx, t); err != nil {
 		return err
 	}
-	if oldOwner != 0 {
-		_ = s.cache.InvalidateTasks(ctx, oldOwner)
+	if s.cache != nil {
+		if oldOwner != 0 {
+			_ = s.cache.InvalidateTasks(ctx, oldOwner)
+		}
+		_ = s.cache.InvalidateTasks(ctx, t.OwnerID)
 	}
-	_ = s.cache.InvalidateTasks(ctx, t.OwnerID)
 	return nil
 }
 
@@ -82,7 +88,9 @@ func (s *taskService) DeleteTask(ctx context.Context, id int64) error {
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return err
 	}
-	_ = s.cache.InvalidateTasks(ctx, t.OwnerID)
+	if s.cache != nil && t != nil {
+		_ = s.cache.InvalidateTasks(ctx, t.OwnerID)
+	}
 	return nil
 }
 
@@ -94,14 +102,17 @@ func (s *taskService) AssignTask(ctx context.Context, taskID, userID int64) erro
 	if err := s.repo.Assign(ctx, taskID, userID); err != nil {
 		return err
 	}
-	_ = s.cache.InvalidateTasks(ctx, t.OwnerID)
-	_ = s.cache.InvalidateTasks(ctx, userID)
-
-	msg := map[string]interface{}{
-		"task_id":     taskID,
-		"assigned_to": userID,
+	if s.cache != nil && t != nil {
+		_ = s.cache.InvalidateTasks(ctx, t.OwnerID)
+		_ = s.cache.InvalidateTasks(ctx, userID)
 	}
-	_ = s.kafka.Publish(ctx, "tasks.assigned", msg)
+	if s.kafka != nil {
+		msg := map[string]interface{}{
+			"task_id":     taskID,
+			"assigned_to": userID,
+		}
+		_ = s.kafka.Publish(ctx, "tasks.assigned", msg)
+	}
 	return nil
 }
 
